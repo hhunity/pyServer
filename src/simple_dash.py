@@ -3,6 +3,7 @@ import json
 import dash
 from dash import html, dcc, Input, Output, State
 import plotly.graph_objs as go
+from datetime import datetime
 
 
 def build_fig(xs=None, ys=None, title=None):
@@ -21,6 +22,36 @@ def build_fig(xs=None, ys=None, title=None):
     if xs and ys:
         fig.add_trace(go.Scatter(x=xs, y=ys, mode="markers", name="elapsed_ms"))
     return fig
+
+
+def parse_time(value):
+    """Parse time field to a float timestamp (None on failure)."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        s = value
+        if "T" in s:
+            try:
+                return datetime.fromisoformat(s).timestamp()
+            except ValueError:
+                # truncate fractional seconds to 6 digits if longer
+                try:
+                    if "." in s:
+                        base, frac = s.split(".", 1)
+                        frac_digits = "".join(ch for ch in frac if ch.isdigit())
+                        frac_adj = (frac_digits[:6]).ljust(6, "0")
+                        return datetime.fromisoformat(f"{base}.{frac_adj}").timestamp()
+                except Exception:
+                    return None
+            except Exception:
+                return None
+        try:
+            return float(s)
+        except Exception:
+            return None
+    return None
 
 
 # ----------------------------------------
@@ -135,7 +166,12 @@ def show_files(path, selected_path):
         return f"ディレクトリを指定してください: {abs_path}"
 
     try:
-        entries = [e for e in sorted(os.listdir(abs_path)) if e.endswith(".jsonl")]
+        candidates = [e for e in os.listdir(abs_path) if e.endswith(".jsonl")]
+        entries = sorted(
+            candidates,
+            key=lambda name: os.path.getmtime(os.path.join(abs_path, name)),
+            reverse=True,
+        )
     except Exception as e:
         return f"読み取りに失敗しました: {e}"
 
@@ -237,7 +273,7 @@ def update_runid_list(selected_path, selected_run_id):
     if not selected_path or not os.path.isfile(selected_path):
         return ""
 
-    run_ids = []
+    run_times = {}
     try:
         with open(selected_path, "r") as f:
             for line in f:
@@ -247,13 +283,24 @@ def update_runid_list(selected_path, selected_run_id):
                     continue
                 if obj.get("type") == "run_end" and "run_id" in obj:
                     rid = obj.get("run_id")
-                    if rid not in run_ids:
-                        run_ids.append(rid)
+                    t_val = parse_time(obj.get("time"))
+                    prev = run_times.get(rid)
+                    if prev is None or (t_val is not None and (prev is None or t_val > prev)):
+                        run_times[rid] = t_val
     except Exception as e:
         return f"run_id抽出に失敗しました: {e}"
 
-    if not run_ids:
+    if not run_times:
         return "run_end の run_id が見つかりません。"
+
+    # sort by time desc (None is treated as oldest)
+    sorted_run_ids = [
+        rid for rid, _ in sorted(
+            run_times.items(),
+            key=lambda kv: kv[1] if kv[1] is not None else float("-inf"),
+            reverse=True,
+        )
+    ]
 
     return [
         html.Div(
@@ -270,7 +317,7 @@ def update_runid_list(selected_path, selected_run_id):
                 "color": "#fff" if rid == selected_run_id else "#eee",
             },
         )
-        for rid in run_ids
+        for rid in sorted_run_ids
     ]
 
 
