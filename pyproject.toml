@@ -1,0 +1,22 @@
+[project]
+name = "pyserver"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "hhunity",email = "hoshika.hiroyuki@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "flask (>=3.1.2,<4.0.0)",
+    "pandas (>=2.3.3,<3.0.0)",
+    "plotly (>=6.5.0,<7.0.0)",
+    "watchdog (>=6.0.0,<7.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+package-mode = false
