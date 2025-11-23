@@ -6,6 +6,7 @@ import plotly.graph_objs as go
 
 
 def build_fig(xs=None, ys=None, title=None):
+    """Build a scatter-only figure with consistent dark styling."""
     fig = go.Figure()
     fig.update_layout(
         height=300,
@@ -21,17 +22,15 @@ def build_fig(xs=None, ys=None, title=None):
         fig.add_trace(go.Scatter(x=xs, y=ys, mode="markers", name="elapsed_ms"))
     return fig
 
+
 # ----------------------------------------
 # Dash アプリ本体の生成
 # ----------------------------------------
-# Dash(__name__) を呼ぶと Web サーバが立ち上がり、
-# Flask + React + Plotly のセットが裏で構築される。
 app = dash.Dash(__name__)
 
 # ======================================================
 # layout = 画面に「何をどう配置するか」を定義する部分
 # ======================================================
-# html.Div の中に HTML と Dash コンポーネントを入れていく
 app.layout = html.Div([
     dcc.Store(id="selected-file"),
     dcc.Store(id="selected-run-id"),
@@ -73,7 +72,7 @@ app.layout = html.Div([
                                 "color": "#eee",
                             },
                         ),
-                        ]),
+                    ]),
                     html.Div([
                         html.Div("file list", style={"fontWeight": "bold", "marginTop": "10px"}),
                         html.Div(id="file-list", style={"marginTop": "4px", "fontSize": "16px"}),
@@ -84,7 +83,7 @@ app.layout = html.Div([
                     ]),
                 ]
             ),
-            # 右カラム: ファイル内容
+            # 右カラム: グラフ＋ファイル内容
             html.Div(
                 style={
                     "flex": "1",
@@ -117,6 +116,7 @@ app.layout = html.Div([
         ]
     )
 ])
+
 
 # 3) パス直下のファイル一覧を表示する callback
 @app.callback(
@@ -186,14 +186,14 @@ def show_file_content(n_clicks, selected_run_id, current_file):
     else:
         # ファイルクリック時
         if not n_clicks or all((c is None or c == 0) for c in n_clicks):
-            return dash.no_update, dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, build_fig()
         if isinstance(trig, dict):
             path = trig.get("path")
         else:
             try:
                 path = json.loads(ctx.triggered[0]["prop_id"].split(".")[0]).get("path")
             except Exception:
-                return dash.no_update, dash.no_update, dash.no_update
+                return dash.no_update, dash.no_update, build_fig()
         new_selected = path
 
     if not path or not os.path.isfile(path):
@@ -307,6 +307,5 @@ def select_run_id(n_clicks, current_selected):
 # ======================================================
 # 実行エントリポイント
 # ======================================================
-# debug=True → ファイル保存時に自動で Web ページをリロードしてくれる
 if __name__ == "__main__":
     app.run(debug=True)
