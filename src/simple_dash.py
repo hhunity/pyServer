@@ -65,6 +65,8 @@ app = dash.Dash(__name__)
 app.layout = html.Div([
     dcc.Store(id="selected-file"),
     dcc.Store(id="selected-run-id"),
+    dcc.Store(id="selected-file-version", data={"version": 0, "mtime": None}),
+    dcc.Interval(id="auto-refresh-interval", interval=2000, disabled=True),
 
     html.Div(
         style={
@@ -88,6 +90,10 @@ app.layout = html.Div([
                 },
                 children=[
                     html.H2("Dash Test"),
+                    html.Div(
+                        html.Button("自動更新", id="auto-refresh", n_clicks=0),
+                        style={"marginBottom": "8px"},
+                    ),
                     html.Div([
                         html.Div("log Path", style={"fontWeight": "bold", "marginTop": "10px"}),
                         dcc.Input(
@@ -268,8 +274,9 @@ def show_file_content(n_clicks, selected_run_id, current_file):
     Output("runid-list", "children"),
     Input("selected-file", "data"),
     Input("selected-run-id", "data"),
+    Input("selected-file-version", "data"),
 )
-def update_runid_list(selected_path, selected_run_id):
+def update_runid_list(selected_path, selected_run_id, _version):
     if not selected_path or not os.path.isfile(selected_path):
         return ""
 
@@ -349,6 +356,48 @@ def select_run_id(n_clicks, current_selected):
         return None
 
     return rid
+
+
+@app.callback(
+    Output("auto-refresh", "children"),
+    Output("auto-refresh", "style"),
+    Output("auto-refresh-interval", "disabled"),
+    Input("auto-refresh", "n_clicks"),
+)
+def toggle_auto_refresh(n_clicks):
+    on = bool(n_clicks and n_clicks % 2 == 1)
+    label = "自動更新 ON" if on else "自動更新 OFF"
+    base_style = {
+        "padding": "6px 10px",
+        "border": "1px solid #333",
+        "borderRadius": "4px",
+        "cursor": "pointer",
+        "backgroundColor": "#2f6eff" if on else "#222",
+        "color": "#fff" if on else "#eee",
+    }
+    return label, base_style, (not on)
+
+
+@app.callback(
+    Output("selected-file-version", "data"),
+    Input("auto-refresh-interval", "n_intervals"),
+    State("selected-file", "data"),
+    State("selected-file-version", "data"),
+)
+def refresh_selected_file_version(_, selected_file, current):
+    if not selected_file or not os.path.isfile(selected_file):
+        return dash.no_update
+
+    try:
+        mtime = os.path.getmtime(selected_file)
+    except OSError:
+        return dash.no_update
+
+    current = current or {"version": 0, "mtime": None}
+    if current.get("mtime") == mtime:
+        return dash.no_update
+
+    return {"version": current.get("version", 0) + 1, "mtime": mtime}
 
 
 # ======================================================
