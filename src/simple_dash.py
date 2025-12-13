@@ -527,8 +527,8 @@ def toggle_sidebar(n):
     if collapsed:
         content_style = {"display": "none"}
         collapsed_style = {
-            "width": "46px",
-            "minWidth": "46px",
+            "width": "24px",
+            "minWidth": "24px",
             "backgroundColor": "#1a1a1a",
             "padding": "8px",
             "border": "1px solid #333",
